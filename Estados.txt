@@ -1,0 +1,10 @@
+V_nt: M A B
+V_i: a b c
+S: M
+P:
+M -> A B
+A -> a
+B -> b
+B -> c
+
+cadena: abbc
