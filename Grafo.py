@@ -1,28 +1,21 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 
-def leer_gramatica_y_cadena(archivo):
+def leer_gramatica(archivo):
     """
-    Lee la gramática y la cadena desde un archivo de texto.
-
-    Args:
-        archivo (str): Nombre del archivo con la gramática.
-
-    Returns:
-        tuple: Diccionario con las componentes de la gramática y la cadena.
+    Lee el archivo de gramática y devuelve las componentes de la gramática: V_nt, V_i, S, P, cadena.
     """
     with open(archivo, 'r') as f:
         gramatica = f.readlines()
 
     componentes = {
-        "V_nt": [],
-        "V_i": [],
-        "S": None,
-        "P": [],
-        "cadena": ""
+        "V_nt": [],  # Variables no terminales
+        "V_i": [],   # Variables terminales
+        "S": None,   # Símbolo inicial
+        "P": [],     # Producciones
+        "cadena": [] # Cadena a derivar
     }
 
-    leyendo_producciones = False
     for linea in gramatica:
         linea = linea.strip()
         if linea.startswith("V_nt:"):
@@ -32,72 +25,99 @@ def leer_gramatica_y_cadena(archivo):
         elif linea.startswith("S:"):
             componentes["S"] = linea.replace("S:", "").strip()
         elif linea.startswith("P:"):
-            leyendo_producciones = True
-            continue
-        elif "cadena:" in linea:
-            componentes["cadena"] = linea.replace("cadena:", "").strip()
-        elif leyendo_producciones:
+            continue  # Ignorar la línea que solo contiene 'P:'
+        elif linea.startswith("cadena:"):
+            componentes["cadena"] = list(linea.replace("cadena:", "").strip())
+        else:
+            # Procesar producción
             if "->" in linea:
                 izquierda, derecha = linea.split("->")
                 izquierda = izquierda.strip()
-                derecha = derecha.strip().split()
+                derecha = derecha.strip().split()  # Separar múltiples símbolos en la parte derecha
                 componentes["P"].append((izquierda, derecha))
     
     return componentes
 
-
-def generar_grafo_cadena(gramatica):
+def expandir_gramatica(gramatica, simbolo, G, padre=None):
     """
-    Crea un grafo dirigido que sigue el derivado de la cadena con la gramática.
-
-    Args:
-        gramatica (dict): Diccionario con las componentes de la gramática.
-
-    Returns:
-        nx.DiGraph: Grafo dirigido representando la derivación de la cadena.
+    Expande un símbolo dado según las producciones de la gramática y añade nodos y aristas al grafo.
     """
-    G = nx.DiGraph()
-    cadena_a_generar = list(gramatica["cadena"])
+    for produccion in gramatica["P"]:
+        izq, der = produccion
+        if izq == simbolo:
+            for simbolo_der in der:
+                G.add_node(simbolo_der, label=simbolo_der)
+                if padre:
+                    G.add_edge(padre, simbolo_der)
+                # Si es no terminal, se sigue expandiendo
+                if simbolo_der in gramatica["V_nt"]:
+                    expandir_gramatica(gramatica, simbolo_der, G, simbolo_der)
+
+def generar_arbol_cadena(gramatica):
+    """
+    Genera el árbol de derivación basado solo en la cadena dada utilizando las producciones de la gramática.
+    """
+    G = nx.DiGraph()  # Grafo dirigido para representar el árbol
     
-    # Punto de partida
-    apuntador = gramatica["S"]
-
-    # Paso de derivación
-    derivacion = [apuntador]
-    G.add_node(apuntador, tipo="no_terminal")
-
-    while derivacion:
-        parte_actual = derivacion.pop(0)
-
-        for produccion in gramatica["P"]:
-            if parte_actual == produccion[0] and produccion[1] == cadena_a_generar[:len(produccion[1])]:
-                # Añadir la transición al grafo
-                for simbolo in produccion[1]:
-                    G.add_edge(parte_actual, simbolo)
-                    derivacion.append(simbolo)
-                    parte_actual = simbolo
-                cadena_a_generar = cadena_a_generar[len(produccion[1]):]
-                break
-
+    # Expandir el símbolo inicial
+    simbolo_inicial = gramatica["S"]
+    
+    # Verificar si el símbolo inicial está en las producciones
+    if simbolo_inicial not in [prod[0] for prod in gramatica["P"]]:
+        print("El símbolo inicial no tiene producción asociada.")
+        return G
+    
+    G.add_node(simbolo_inicial, label=simbolo_inicial)
+    
+    # Expansión recursiva del símbolo inicial
+    expandir_gramatica(gramatica, simbolo_inicial, G, simbolo_inicial)
+    
     return G
 
-def visualizar_grafo(G):
+def visualizar_arbol(G):
     """
-    Visualiza el grafo utilizando Matplotlib.
-
-    Args:
-        G (nx.DiGraph): Grafo dirigido.
+    Visualiza el grafo como un árbol utilizando NetworkX y Matplotlib.
     """
-    pos = nx.spring_layout(G)
-    nx.draw(G, pos, with_labels=True, node_color="lightblue", font_size=10, node_size=3000, font_color="black", font_weight='bold', arrows=True)
+    if len(G) == 0:
+        print("El grafo no tiene nodos para dibujar.")
+        return
+    
+    pos = nx.spring_layout(G)  # Intentar con un layout diferente
+    etiquetas = nx.get_node_attributes(G, 'label')
+    
+    plt.figure(figsize=(10, 8))
+    nx.draw(G, pos, labels=etiquetas, with_labels=True, node_color="lightblue", 
+            font_size=12, font_weight='bold', node_size=3000, font_color='black', arrows=True)
+    plt.title("Árbol derivado de la cadena")
     plt.show()
 
+# Programa principal
 def main():
-    archivo_gramatica = "Estados.txt"
-    gramatica = leer_gramatica_y_cadena(archivo_gramatica)
-    grafo = generar_grafo_cadena(gramatica)
-    visualizar_grafo(grafo)
+    archivo_gramatica = "Estados.txt"  # Nombre del archivo gramatical
+    gramatica = leer_gramatica(archivo_gramatica)
+    
+    print("Gramática leída:")
+    print("No terminales:", gramatica["V_nt"])
+    print("Terminales:", gramatica["V_i"])
+    print("Símbolo inicial:", gramatica["S"])
+    print("Producciones:", gramatica["P"])
+    print("Cadena:", gramatica["cadena"])
+    
+    # Verificar si la cadena tiene símbolos no terminales que no pertenecen a las producciones
+    for simbolo in gramatica["cadena"]:
+        if simbolo not in gramatica["V_nt"] and simbolo not in gramatica["V_i"]:
+            print(f"El símbolo '{simbolo}' en la cadena no está en las producciones ni en las variables.")
+            return
+    
+    # Generar el árbol (grafo dirigido) solo de la cadena
+    grafo_arbol = generar_arbol_cadena(gramatica)
+    
+    # Si el grafo está vacío, no visualizar nada
+    if len(grafo_arbol.nodes) == 0:
+        print("El grafo está vacío, no hay nada que visualizar.")
+    else:
+        # Visualizar el árbol
+        visualizar_arbol(grafo_arbol)
 
 if __name__ == "__main__":
     main()
-
