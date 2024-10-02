@@ -1,8 +1,9 @@
-V_nt: S A B
-V_i: a b
+V_nt: S A B C
+V_i: a b c d
 S: S
 P:
-S -> A B
-A -> a
-B -> b
-cadena: H
+S -> A B C
+A -> aA a
+B -> bB b
+C -> c d
+cadena: B

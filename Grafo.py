@@ -38,7 +38,7 @@ def leer_gramatica(archivo):
     
     return componentes
 
-def expandir_gramatica(gramatica, simbolo, G, padre=None):
+def expandir_gramatica(gramatica, simbolo, G, padre=None, cadena=None):
     """
     Expande un símbolo dado según las producciones de la gramática y añade nodos y aristas al grafo.
     """
@@ -49,9 +49,10 @@ def expandir_gramatica(gramatica, simbolo, G, padre=None):
                 G.add_node(simbolo_der, label=simbolo_der)
                 if padre:
                     G.add_edge(padre, simbolo_der)
-                # Si es no terminal, se sigue expandiendo
-                if simbolo_der in gramatica["V_nt"]:
-                    expandir_gramatica(gramatica, simbolo_der, G, simbolo_der)
+                # Si es no terminal y está en la cadena, se sigue expandiendo
+                if simbolo_der in gramatica["V_nt"] and simbolo_der in cadena:
+                    expandir_gramatica(gramatica, simbolo_der, G, simbolo_der, cadena)
+
 
 def generar_arbol_cadena(gramatica):
     """
@@ -59,21 +60,21 @@ def generar_arbol_cadena(gramatica):
     """
     G = nx.DiGraph()  # Grafo dirigido para representar el árbol
     
-    # Expandir el símbolo inicial
-    simbolo_inicial = gramatica["S"]
+    # Verificar si los símbolos de la cadena están en las producciones
+    for simbolo in gramatica["cadena"]:
+        if simbolo not in gramatica["V_nt"] and simbolo not in gramatica["V_i"]:
+            print(f"El símbolo '{simbolo}' en la cadena no está en las producciones ni en las variables.")
+            return G
     
-    # Verificar si el símbolo inicial está en las producciones
-    if simbolo_inicial not in [prod[0] for prod in gramatica["P"]]:
-        print("El símbolo inicial no tiene producción asociada.")
-        return G
-    
-    G.add_node(simbolo_inicial, label=simbolo_inicial)
-    
-    # Expansión recursiva del símbolo inicial
-    expandir_gramatica(gramatica, simbolo_inicial, G, simbolo_inicial)
+    # Expandir cada símbolo de la cadena
+    for simbolo in gramatica["cadena"]:
+        if simbolo in gramatica["V_nt"]:
+            G.add_node(simbolo, label=simbolo)
+            expandir_gramatica(gramatica, simbolo, G, simbolo, gramatica["cadena"])
     
     return G
-
+    
+    
 def visualizar_arbol(G):
     """
     Visualiza el grafo como un árbol utilizando NetworkX y Matplotlib.
